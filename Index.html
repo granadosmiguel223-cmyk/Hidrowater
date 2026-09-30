@@ -1,0 +1,1004 @@
+```html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaMagdalena Pro - Simulador de Gestión Hídrica de Santa Marta y Magdalena</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        caribe: {
+                            50: '#F0F9FF',
+                            100: '#E0F2FE',
+                            500: '#028090',
+                            600: '#05668D',
+                            700: '#034057',
+                            emerald: '#2A9D8F',
+                            sand: '#F4A261',
+                            coral: '#E76F51',
+                            dark: '#0B192C'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #028090; border-radius: 4px; }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        
+        .zone-path {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .zone-path:hover {
+            filter: brightness(1.15) drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+            stroke-width: 2.5px;
+        }
+
+        .pulse-warning {
+            animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(231, 111, 81, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(231, 111, 81, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(231, 111, 81, 0); }
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background: white !important; color: black !important; }
+            .glass-card { border: 1px solid #ccc !important; box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <header class="bg-gradient-to-r from-caribe-700 via-caribe-600 to-caribe-emerald text-white shadow-xl sticky top-0 z-40 no-print">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/10 p-2.5 rounded-2xl backdrop-blur-md border border-white/20">
+                    <i class="fa-solid fa-water-waves text-2xl text-caribe-sand"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl sm:text-2xl font-black tracking-tight">AquaMagdalena</h1>
+                        <span class="bg-caribe-sand/20 text-caribe-sand text-[10px] font-bold px-2 py-0.5 rounded-full border border-caribe-sand/30">PRO v2.5</span>
+                    </div>
+                    <p class="text-xs text-slate-200">Simulador Avanzado de Gestión Hídrica y Decisiones Públicas</p>
+                </div>
+            </div>
+
+            <!-- Panel de Tiempo y Simulación -->
+            <div class="flex items-center space-x-3 bg-slate-900/40 p-2 rounded-2xl backdrop-blur-md border border-white/10">
+                <div class="px-3 py-1 bg-white/10 rounded-xl text-center min-w-[100px]">
+                    <span class="text-[9px] block uppercase font-bold text-caribe-sand tracking-widest">Periodo</span>
+                    <span id="display-date" class="font-extrabold text-sm text-white">Ene - Año 1</span>
+                </div>
+                
+                <div class="flex space-x-1.5">
+                    <button id="btn-play" onclick="togglePlay()" class="w-10 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold flex items-center justify-center transition shadow-lg shadow-emerald-900/20" title="Iniciar/Pausar">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                    <button id="btn-next" onclick="nextTick()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold flex items-center justify-center transition" title="Siguiente Mes">
+                        <i class="fa-solid fa-forward-step"></i>
+                    </button>
+                    <button onclick="resetSimulation()" class="w-10 h-10 rounded-xl bg-white/10 hover:bg-rose-500 text-white font-bold flex items-center justify-center transition" title="Reiniciar">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <button onclick="exportPDF()" class="w-10 h-10 rounded-xl bg-caribe-sand/20 hover:bg-caribe-sand text-white hover:text-slate-900 font-bold flex items-center justify-center transition" title="Generar Informe PDF">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 sm:px-6 lg:px-8 space-y-6">
+
+        <!-- Banner de Estado Climático / Clave del Mes -->
+        <div id="climate-banner" class="glass-card rounded-2xl p-4 flex items-center justify-between border-l-8 border-l-caribe-emerald shadow-sm transition-all">
+            <div class="flex items-center space-x-4">
+                <div id="climate-icon-bg" class="p-3 bg-emerald-100 text-emerald-700 rounded-xl">
+                    <i id="climate-icon" class="fa-solid fa-cloud-sun text-2xl"></i>
+                </div>
+                <div>
+                    <h3 id="climate-title" class="font-bold text-slate-800 text-sm sm:text-base">Condiciones Climatológicas Normales</h3>
+                    <p id="climate-desc" class="text-xs text-slate-500">Caudales de los ríos Manzanares, Gaira y Piedras dentro del promedio estacional.</p>
+                </div>
+            </div>
+            <div class="text-right hidden sm:block">
+                <span class="text-[10px] uppercase font-bold text-slate-400 block">Efecto Sierra Nevada</span>
+                <span id="climate-effect" class="text-xs font-bold text-emerald-600">+0 L/s Flujo Base</span>
+            </div>
+        </div>
+
+        <!-- KPIs Principales -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            
+            <!-- Reserva Cuencas -->
+            <div class="glass-card p-4 rounded-2xl shadow-sm relative overflow-hidden">
+                <div id="bar-basin-fill" class="absolute bottom-0 left-0 top-0 bg-caribe-500/10 transition-all duration-500" style="width: 75%;"></div>
+                <div class="relative z-10">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Reserva Sierra</span>
+                    <div class="flex items-baseline gap-1 mt-1">
+                        <span id="kpi-basin" class="text-2xl font-black text-caribe-700">75</span>
+                        <span class="text-xs font-bold text-slate-500">%</span>
+                    </div>
+                    <span id="kpi-basin-status" class="inline-block mt-2 px-2 py-0.5 text-[9px] font-bold rounded-md bg-emerald-100 text-emerald-800">Normal</span>
+                </div>
+            </div>
+
+            <!-- Balance Oferta/Demanda -->
+            <div class="glass-card p-4 rounded-2xl shadow-sm">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Oferta Neta</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <span id="kpi-supply" class="text-2xl font-black text-caribe-600">820</span>
+                    <span class="text-xs text-slate-400">/ <span id="kpi-demand">910</span> L/s</span>
+                </div>
+                <span id="kpi-deficit-status" class="inline-block mt-2 px-2 py-0.5 text-[9px] font-bold rounded-md bg-amber-100 text-amber-800">-90 L/s Déficit</span>
+            </div>
+
+            <!-- Pérdidas Técnicas -->
+            <div class="glass-card p-4 rounded-2xl shadow-sm">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Pérdida en Red</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <span id="kpi-losses" class="text-2xl font-black text-rose-600">48</span>
+                    <span class="text-xs font-bold text-slate-500">%</span>
+                </div>
+                <span class="text-[9px] text-slate-400 block mt-2">Fugas y tuberías obsoletas</span>
+            </div>
+
+            <!-- Salinización Pozos -->
+            <div class="glass-card p-4 rounded-2xl shadow-sm">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Salinidad Pozos</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <span id="kpi-salinity" class="text-2xl font-black text-amber-600">18</span>
+                    <span class="text-xs font-bold text-slate-500">%</span>
+                </div>
+                <span id="kpi-salinity-status" class="text-[9px] font-semibold text-emerald-600 block mt-2">Apta para consumo</span>
+            </div>
+
+            <!-- Flujo Ciénaga Grande -->
+            <div class="glass-card p-4 rounded-2xl shadow-sm">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Flujo Ciénaga</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <span id="kpi-cienaga" class="text-2xl font-black text-caribe-emerald">82</span>
+                    <span class="text-xs font-bold text-slate-500">%</span>
+                </div>
+                <span class="text-[9px] text-slate-400 block mt-2">Equilibrio ecosistémico</span>
+            </div>
+
+            <!-- Aprobación / Política -->
+            <div class="glass-card p-4 rounded-2xl shadow-sm">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Aprobación Popular</span>
+                <div class="flex items-baseline gap-1 mt-1">
+                    <span id="kpi-approval" class="text-2xl font-black text-slate-800">74</span>
+                    <span class="text-xs font-bold text-slate-500">%</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 mt-2">
+                    <div id="bar-approval" class="bg-caribe-emerald h-1.5 rounded-full transition-all" style="width: 74%"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- MAPA VECTORIAL SVG INTERACTIVO (7 Cols) -->
+            <section class="lg:col-span-7 glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-map-location-dot text-caribe-500"></i> Cobertura y Racionamiento por Comunas
+                        </h2>
+                        <span class="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2 py-1 rounded-lg">
+                            Haga clic en una comuna para ver detalles
+                        </span>
+                    </div>
+
+                    <!-- SVG Map Canvas -->
+                    <div class="relative bg-slate-900/90 rounded-2xl p-4 shadow-inner border border-slate-700 overflow-hidden min-h-[320px] flex items-center justify-center">
+                        
+                        <svg viewBox="0 0 600 400" class="w-full h-auto max-h-[380px] drop-shadow-lg">
+                            <defs>
+                                <linearGradient id="sierraGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#1e293b" />
+                                    <stop offset="100%" stop-color="#0f172a" />
+                                </linearGradient>
+                            </defs>
+
+                            <!-- Fondo Sierra Nevada (Montaña Representativa) -->
+                            <path d="M 380,20 L 580,180 L 590,380 L 280,380 Z" fill="url(#sierraGrad)" stroke="#334155" stroke-width="1.5" />
+                            <text x="450" y="80" fill="#64748b" font-size="12" font-weight="bold" letter-spacing="2">SIERRA NEVADA</text>
+                            <text x="450" y="95" fill="#475569" font-size="9">(Cuencas Manzanares, Gaira, Piedras)</text>
+
+                            <!-- Mar Caribe -->
+                            <path d="M 0,0 L 250,0 L 150,220 L 0,260 Z" fill="#028090" opacity="0.15" />
+                            <text x="30" y="50" fill="#028090" font-size="11" font-weight="bold" opacity="0.6">MAR CARIBE</text>
+
+                            <!-- Zonas / Comunas -->
+                            <!-- 1. Taganga -->
+                            <path id="zone-taganga" onclick="selectZone('taganga')" class="zone-path" d="M 180,20 L 260,10 L 280,80 L 190,70 Z" fill="#2A9D8F" stroke="#ffffff" stroke-width="1.5" />
+                            <text x="205" y="45" fill="#ffffff" font-size="10" font-weight="bold" pointer-events="none">Taganga</text>
+
+                            <!-- 2. Centro Histórico / Bastidas -->
+                            <path id="zone-centro" onclick="selectZone('centro')" class="zone-path" d="M 150,75 L 280,80 L 260,160 L 140,140 Z" fill="#2A9D8F" stroke="#ffffff" stroke-width="1.5" />
+                            <text x="175" y="115" fill="#ffffff" font-size="11" font-weight="bold" pointer-events="none">Centro / Bastidas</text>
+
+                            <!-- 3. Mamatoco / San Pedro -->
+                            <path id="zone-mamatoco" onclick="selectZone('mamatoco')" class="zone-path" d="M 280,80 L 400,100 L 370,190 L 260,160 Z" fill="#2A9D8F" stroke="#ffffff" stroke-width="1.5" />
+                            <text x="290" y="130" fill="#ffffff" font-size="11" font-weight="bold" pointer-events="none">Mamatoco</text>
+
+                            <!-- 4. El Rodadero / Gaira -->
+                            <path id="zone-rodadero" onclick="selectZone('rodadero')" class="zone-path" d="M 120,145 L 260,160 L 230,260 L 90,220 Z" fill="#2A9D8F" stroke="#ffffff" stroke-width="1.5" />
+                            <text x="135" y="200" fill="#ffffff" font-size="11" font-weight="bold" pointer-events="none">El Rodadero / Gaira</text>
+
+                            <!-- 5. Bonda / Zona Rural -->
+                            <path id="zone-bonda" onclick="selectZone('bonda')" class="zone-path" d="M 370,190 L 520,200 L 460,320 L 320,280 Z" fill="#2A9D8F" stroke="#ffffff" stroke-width="1.5" />
+                            <text x="390" y="250" fill="#ffffff" font-size="11" font-weight="bold" pointer-events="none">Bonda / Rural</text>
+
+                            <!-- 6. Zona Norte / Pozos Colorados -->
+                            <path id="zone-norte" onclick="selectZone('norte')" class="zone-path" d="M 90,220 L 230,260 L 190,370 L 40,320 Z" fill="#2A9D8F" stroke="#ffffff" stroke-width="1.5" />
+                            <text x="80" y="290" fill="#ffffff" font-size="11" font-weight="bold" pointer-events="none">Pozos Colorados / Bello Horizonte</text>
+
+                            <!-- Leyendas e Indicadores en Mapa -->
+                            <circle cx="280" cy="110" r="4" fill="#E76F51" class="animate-ping" />
+                            <circle cx="280" cy="110" r="4" fill="#E76F51" />
+                            <text x="290" y="112" fill="#cbd5e1" font-size="8">PTAP Mamatoco</text>
+                        </svg>
+
+                        <!-- Leyenda de colores del mapa -->
+                        <div class="absolute bottom-2 left-2 bg-slate-900/80 backdrop-blur p-2 rounded-xl border border-slate-700 flex text-[9px] text-slate-300 gap-3">
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> 90-100% (Óptimo)</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> 60-89% (Moderado)</span>
+                            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> &lt;60% (Crítico)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalle de la Comuna Seleccionada -->
+                <div id="zone-detail-card" class="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs flex justify-between items-center">
+                    <div>
+                        <span id="detail-zone-name" class="font-bold text-caribe-700 text-sm block">Comuna: Centro Histórico / Bastidas</span>
+                        <span id="detail-zone-desc" class="text-slate-500">Población: ~120,000 hab. • Estado del Suministro: Normal</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 block font-bold">Presión de Red</span>
+                        <span id="detail-zone-pressure" class="font-extrabold text-emerald-600 text-sm">28 PSI</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PANEL DE CONTROL & DECISIONES (5 Cols) -->
+            <section class="lg:col-span-5 space-y-5">
+                
+                <!-- Sliders de Operación Diaria -->
+                <div class="glass-card rounded-2xl p-5 shadow-sm space-y-4">
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-caribe-500"></i> Controles Operativos Mensuales
+                    </h2>
+
+                    <!-- Mantenimiento / Pérdidas -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1">
+                            <label class="text-slate-700">Mantenimiento de Redes</label>
+                            <span id="val-maint" class="text-caribe-600 font-bold">$180M /mes</span>
+                        </div>
+                        <input type="range" id="slider-maint" min="20" max="600" value="180" step="20" class="w-full accent-caribe-500 h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                        <div class="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                            <span>Mínimo</span>
+                            <span>Reduce pérdidas físicas</span>
+                            <span>Máximo</span>
+                        </div>
+                    </div>
+
+                    <!-- Sectorización y Racionamiento -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1">
+                            <label class="text-slate-700">Racionamiento por Sectores</label>
+                            <span id="val-ration" class="text-caribe-600 font-bold">0%</span>
+                        </div>
+                        <input type="range" id="slider-ration" min="0" max="50" value="0" step="5" class="w-full accent-caribe-500 h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                        <div class="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                            <span>Sin corte</span>
+                            <span>Protege reserva</span>
+                            <span>50% Sectorizado</span>
+                        </div>
+                    </div>
+
+                    <!-- Pozos Subterráneos -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1">
+                            <label class="text-slate-700">Bombeo de Pozos Profundos</label>
+                            <span id="val-wells" class="text-caribe-600 font-bold">120 L/s</span>
+                        </div>
+                        <input type="range" id="slider-wells" min="0" max="350" value="120" step="10" class="w-full accent-caribe-500 h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                        <div class="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                            <span>Apagado</span>
+                            <span>Riesgo de Salinización si excede</span>
+                            <span>350 L/s</span>
+                        </div>
+                    </div>
+
+                    <!-- Tarifas -->
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1">
+                            <label class="text-slate-700">Ajuste Tarifa del Servicio</label>
+                            <span id="val-tariff" class="text-caribe-600 font-bold">Base (0%)</span>
+                        </div>
+                        <input type="range" id="slider-tariff" min="-20" max="40" value="0" step="5" class="w-full accent-caribe-500 h-1.5 bg-slate-200 rounded-lg cursor-pointer">
+                        <div class="flex justify-between text-[9px] text-slate-400 mt-0.5">
+                            <span>-20% Subsidio</span>
+                            <span>Balance Presupuesto</span>
+                            <span>+40% Sobretasa</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Eventos Climáticos / Desencadenadores Manuales -->
+                <div class="glass-card rounded-2xl p-4 shadow-sm">
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+                        <i class="fa-solid fa-bolt text-amber-500"></i> Simular Crisis Climáticas / Temporadas
+                    </h2>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button onclick="triggerCrisis('elnino')" class="p-2 rounded-xl border border-amber-200 bg-amber-50/80 hover:bg-amber-100 text-amber-900 font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-sun text-amber-600"></i> El Niño (Sequía)
+                        </button>
+                        <button onclick="triggerCrisis('lanina')" class="p-2 rounded-xl border border-blue-200 bg-blue-50/80 hover:bg-blue-100 text-blue-900 font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-cloud-showers-heavy text-blue-600"></i> La Niña (Turbidez)
+                        </button>
+                        <button onclick="triggerCrisis('turismo')" class="p-2 rounded-xl border border-purple-200 bg-purple-50/80 hover:bg-purple-100 text-purple-900 font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-umbrella-beach text-purple-600"></i> Pico Turístico
+                        </button>
+                        <button onclick="triggerCrisis('falla')" class="p-2 rounded-xl border border-rose-200 bg-rose-50/80 hover:bg-rose-100 text-rose-900 font-bold flex items-center gap-2">
+                            <i class="fa-solid fa-plug-circle-xmark text-rose-600"></i> Falla Eléctrica
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+        </div>
+
+        <section class="glass-card rounded-2xl p-5 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-sm font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-building-ngo text-caribe-500"></i> Megaproyectos e Inversiones Estructurales
+                    </h2>
+                    <p class="text-xs text-slate-500">Invierta el presupuesto acumulado para solucionar la crisis de agua a largo plazo en Santa Marta.</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-[10px] text-slate-400 font-bold block uppercase">Presupuesto Disponible</span>
+                    <span id="project-budget" class="text-lg font-black text-emerald-600">$3,200 M COP</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- Proyecto 1: Desalinizadora -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-caribe-500 transition">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-bold text-caribe-700">Planta Desalinizadora</span>
+                            <span class="bg-blue-100 text-blue-800 text-[9px] font-bold px-2 py-0.5 rounded-md">+200 L/s</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed mb-3">Suministro constante directo del Mar Caribe. No depende de las lluvias en la Sierra Nevada.</p>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-700 mb-2">Costo: $1,800 M COP</div>
+                        <button id="btn-project-desal" onclick="buildProject('desal')" class="w-full py-2 bg-caribe-600 hover:bg-caribe-700 text-white font-bold rounded-lg text-xs transition shadow-sm">
+                            Construir Proyecto
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Proyecto 2: Captación Río Córdoba / Toribio -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-caribe-500 transition">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-bold text-caribe-700">Captación Río Córdoba</span>
+                            <span class="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-md">+350 L/s</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed mb-3">Conexión de tubería regional desde los ríos del sur del departamento del Magdalena.</p>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-700 mb-2">Costo: $2,500 M COP</div>
+                        <button id="btn-project-cordoba" onclick="buildProject('cordoba')" class="w-full py-2 bg-caribe-600 hover:bg-caribe-700 text-white font-bold rounded-lg text-xs transition shadow-sm">
+                            Construir Proyecto
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Proyecto 3: Macroproyecto Río Magdalena -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-caribe-500 transition">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-bold text-caribe-700">APP Río Magdalena</span>
+                            <span class="bg-purple-100 text-purple-800 text-[9px] font-bold px-2 py-0.5 rounded-md">+800 L/s</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed mb-3">Solución definitiva con conducción desde el río Magdalena. Alta inversión requerida.</p>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-700 mb-2">Costo: $4,500 M COP</div>
+                        <button id="btn-project-magdalena" onclick="buildProject('magdalena')" class="w-full py-2 bg-caribe-600 hover:bg-caribe-700 text-white font-bold rounded-lg text-xs transition shadow-sm">
+                            Construir Proyecto
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Proyecto 4: Reforestación Sierra Nevada -->
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-caribe-500 transition">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-bold text-caribe-700">Reforestación Sierra Nevada</span>
+                            <span class="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-md">+15% Reserva</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 leading-relaxed mb-3">Protección de las cuencas altas. Reduce turbidez en La Niña y retiene humedad en El Niño.</p>
+                    </div>
+                    <div>
+                        <div class="text-xs font-bold text-slate-700 mb-2">Costo: $900 M COP</div>
+                        <button id="btn-project-reforest" onclick="buildProject('reforest')" class="w-full py-2 bg-caribe-600 hover:bg-caribe-700 text-white font-bold rounded-lg text-xs transition shadow-sm">
+                            Construir Proyecto
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Gráfico de Tendencia (7 Cols) -->
+            <section class="lg:col-span-7 glass-card rounded-2xl p-5 shadow-sm">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-chart-area text-caribe-500"></i> Evolución de Caudales y Reservas
+                    </h2>
+                    <span class="text-[10px] bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full font-medium">Histórico Móvil</span>
+                </div>
+                <div class="h-64 w-full">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Historial de Bitácora y Decisiones (5 Cols) -->
+            <section class="lg:col-span-5 glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                <div>
+                    <h2 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-caribe-500"></i> Bitácora de Alertas y Gestión
+                    </h2>
+                    <div id="log-container" class="space-y-2 max-h-56 overflow-y-auto pr-2 text-xs">
+                        <!-- Items insertados por JS -->
+                    </div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-200 text-[10px] text-slate-400 flex justify-between">
+                    <span>Estado del Sistema: <strong class="text-emerald-600">Operativo</strong></span>
+                    <span>AquaMagdalena OS</span>
+                </div>
+            </section>
+
+        </div>
+
+    </main>
+
+    <div id="event-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4 no-print">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative animate-bounce-in">
+            <div id="modal-icon-bg" class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl mb-4">
+                <i id="modal-icon" class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="modal-title" class="text-lg font-black text-slate-800 mb-1">¡Alerta Crítica de Agua!</h3>
+            <p id="modal-desc" class="text-xs text-slate-600 leading-relaxed mb-5">
+                Se reporta una emergencia en la cuenca alta de la Sierra Nevada.
+            </p>
+
+            <div id="modal-options" class="space-y-2">
+                <!-- Opciones dinámicas -->
+            </div>
+        </div>
+    </div>
+
+    <div id="print-report" class="hidden print-only p-8 max-w-4xl mx-auto">
+        <div class="border-b-2 border-slate-800 pb-4 mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-black text-slate-900">AquaMagdalena - Informe de Gestión Hídrica</h1>
+                <p class="text-sm text-slate-600">Alcaldía Distrital de Santa Marta & Gobernación del Magdalena</p>
+            </div>
+            <div class="text-right">
+                <span id="print-date" class="text-sm font-bold text-slate-800">Ene - Año 1</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="border p-4 rounded">
+                <h3 class="font-bold text-sm mb-2">Indicadores Clave</h3>
+                <p class="text-xs">Reserva Sierra: <strong id="print-basin">75%</strong></p>
+                <p class="text-xs">Oferta Neta: <strong id="print-supply">820 L/s</strong></p>
+                <p class="text-xs">Demanda Total: <strong id="print-demand">910 L/s</strong></p>
+                <p class="text-xs">Pérdidas Técnicas: <strong id="print-losses">48%</strong></p>
+            </div>
+            <div class="border p-4 rounded">
+                <h3 class="font-bold text-sm mb-2">Impacto Social</h3>
+                <p class="text-xs">Aprobación Popular: <strong id="print-approval">74%</strong></p>
+                <p class="text-xs">Salinidad Pozos: <strong id="print-salinity">18%</strong></p>
+                <p class="text-xs">Flujo Ciénaga Grande: <strong id="print-cienaga">82%</strong></p>
+            </div>
+        </div>
+
+        <h3 class="font-bold text-sm mb-2">Proyectos Ejecutados</h3>
+        <ul id="print-projects" class="list-disc pl-5 text-xs mb-6">
+            <li>Ninguno registrado.</li>
+        </ul>
+
+        <div class="mt-12 text-center text-xs text-slate-400 border-t pt-4">
+            Documento Oficial generado por el Simulator AquaMagdalena Pro.
+        </div>
+    </div>
+
+    <script>
+        // ESTADO GLOBAL DE LA SIMULACIÓN
+        const state = {
+            tick: 1,
+            month: 0,
+            year: 1,
+            isRunning: false,
+            timer: null,
+
+            // Variables de Agua
+            basinLevel: 75,
+            baseDemand: 820,
+            extraDemand: 0,
+            losses: 48,
+            wellPumping: 120,
+            salinity: 18,
+            cienagaFlow: 82,
+
+            // Variables Políticas / Económicas
+            approval: 74,
+            budget: 3200,
+            tariffAdjustment: 0,
+            maintInvestment: 180,
+            rationing: 0,
+
+            // Proyectos Comprados
+            builtProjects: {
+                desal: false,
+                cordoba: false,
+                magdalena: false,
+                reforest: false
+            },
+
+            // Comunas
+            zones: {
+                taganga: { name: 'Taganga', pop: '6,500 hab.', pressure: 22, coverage: 85 },
+                centro: { name: 'Centro Histórico / Bastidas', pop: '125,000 hab.', pressure: 28, coverage: 92 },
+                mamatoco: { name: 'Mamatoco / San Pedro', pop: '95,000 hab.', pressure: 32, coverage: 95 },
+                rodadero: { name: 'El Rodadero / Gaira', pop: '80,000 hab. (+Turistas)', pressure: 20, coverage: 78 },
+                bonda: { name: 'Bonda / Sector Rural', pop: '35,000 hab.', pressure: 18, coverage: 70 },
+                norte: { name: 'Pozos Colorados / Bello Horizonte', pop: '45,000 hab.', pressure: 24, coverage: 82 }
+            },
+
+            selectedZone: 'centro',
+            activeCrisis: null,
+            crisisDuration: 0,
+            months: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+        };
+
+        const historyData = { labels: [], basin: [], supply: [], demand: [] };
+        let mainChart = null;
+
+        // INICIALIZACIÓN
+        window.onload = function() {
+            initChart();
+            updateUI();
+            addLog("Sistema iniciado. Administre la red hídrica de Santa Marta con responsabilidad.", "info");
+            
+            // Listeners de Sliders
+            document.getElementById('slider-maint').addEventListener('input', (e) => {
+                state.maintInvestment = parseInt(e.target.value);
+                document.getElementById('val-maint').innerText = `$${state.maintInvestment}M /mes`;
+            });
+            document.getElementById('slider-ration').addEventListener('input', (e) => {
+                state.rationing = parseInt(e.target.value);
+                document.getElementById('val-ration').innerText = `${state.rationing}%`;
+            });
+            document.getElementById('slider-wells').addEventListener('input', (e) => {
+                state.wellPumping = parseInt(e.target.value);
+                document.getElementById('val-wells').innerText = `${state.wellPumping} L/s`;
+            });
+            document.getElementById('slider-tariff').addEventListener('input', (e) => {
+                state.tariffAdjustment = parseInt(e.target.value);
+                document.getElementById('val-tariff').innerText = `${state.tariffAdjustment > 0 ? '+' : ''}${state.tariffAdjustment}%`;
+            });
+        };
+
+        // INICIALIZAR GRÁFICO
+        function initChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: historyData.labels,
+                    datasets: [
+                        {
+                            label: 'Reserva Sierra (%)',
+                            data: historyData.basin,
+                            borderColor: '#028090',
+                            backgroundColor: 'rgba(2, 128, 144, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Oferta Neta (L/s)',
+                            data: historyData.supply,
+                            borderColor: '#2A9D8F',
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Demanda (L/s)',
+                            data: historyData.demand,
+                            borderColor: '#E76F51',
+                            borderDash: [4, 4],
+                            tension: 0.2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 0, max: 1200 }
+                    }
+                }
+            });
+        }
+
+        // BUCLE PRINCIPAL DE SIMULACIÓN
+        function nextTick() {
+            state.tick++;
+            state.month = (state.month + 1) % 12;
+            if (state.month === 0) state.year++;
+
+            // 1. Clima y Estacionalidad
+            let rainEffect = 0;
+            let turbidity = 0;
+
+            if (state.crisisDuration > 0) {
+                state.crisisDuration--;
+                if (state.activeCrisis === 'elnino') rainEffect = -18;
+                if (state.activeCrisis === 'lanina') { rainEffect = 22; turbidity = 120; }
+                if (state.activeCrisis === 'turismo') state.extraDemand = 280;
+                if (state.crisisDuration === 0) {
+                    addLog(`El fenómeno o crisis '${state.activeCrisis}' ha cedido.`, 'info');
+                    state.activeCrisis = null;
+                    state.extraDemand = 0;
+                }
+            } else {
+                if ([11, 0, 1, 2].includes(state.month)) rainEffect = -6; // Verano
+                else if ([4, 5, 8, 9, 10].includes(state.month)) rainEffect = 12; // Lluvias
+            }
+
+            // 2. Pérdidas Técnicas
+            const maintBenefit = state.maintInvestment * 0.035;
+            state.losses = Math.max(18, Math.min(60, 48 - maintBenefit));
+
+            // 3. Salinización de Pozos por sobreexplotación
+            if (state.wellPumping > 200) {
+                state.salinity = Math.min(60, state.salinity + 2.5);
+            } else {
+                state.salinity = Math.max(10, state.salinity - 1);
+            }
+
+            // 4. Reserva Sierra Nevada
+            const reforestBonus = state.builtProjects.reforest ? 1.2 : 1.0;
+            state.basinLevel = Math.max(0, Math.min(100, (state.basinLevel + (rainEffect * reforestBonus) - 2)));
+
+            // 5. Oferta de Agua
+            let riverCaptation = Math.max(80, (state.basinLevel * 11) - turbidity);
+            
+            // Proyectos adicionales
+            let extraCapacity = 0;
+            if (state.builtProjects.desal) extraCapacity += 200;
+            if (state.builtProjects.cordoba) extraCapacity += 350;
+            if (state.builtProjects.magdalena) extraCapacity += 800;
+
+            const rawTotalSupply = riverCaptation + state.wellPumping + extraCapacity;
+            const netSupply = rawTotalSupply * (1 - (state.losses / 100));
+
+            // 6. Demanda Total
+            const totalDemand = Math.max(450, (state.baseDemand + state.extraDemand) * (1 - (state.rationing / 100)));
+
+            // 7. Balance Ecológico Ciénaga Grande
+            const totalExtracted = rawTotalSupply;
+            state.cienagaFlow = Math.max(20, Math.min(100, 100 - (totalExtracted / 20)));
+
+            // 8. Finanzas y Opinión Pública
+            const baseIncome = 420;
+            const tariffIncome = baseIncome * (1 + (state.tariffAdjustment / 100));
+            const operationalExpenses = state.maintInvestment + (state.wellPumping * 0.8) + (state.builtProjects.desal ? 180 : 0);
+            
+            const netCash = tariffIncome - operationalExpenses;
+            state.budget = Math.max(-2000, state.budget + netCash);
+
+            // Aprobación Popular
+            const deficit = totalDemand - netSupply;
+            let approvalChange = 0;
+
+            if (deficit > 0) approvalChange -= (deficit / 15);
+            else approvalChange += 1.5;
+
+            if (state.rationing > 0) approvalChange -= (state.rationing / 4);
+            if (state.tariffAdjustment > 0) approvalChange -= (state.tariffAdjustment / 3);
+            if (state.salinity > 35) approvalChange -= 4;
+
+            state.approval = Math.max(0, Math.min(100, state.approval + approvalChange));
+
+            // 9. Actualizar Comunas
+            updateZoneCoverage(netSupply / totalDemand);
+
+            // 10. Desencadenar Eventos Aleatorios de Crisis
+            triggerRandomEvents();
+
+            // Actualizar Vistas
+            updateChart(state.months[state.month] + ' A' + state.year, state.basinLevel, netSupply, totalDemand);
+            updateUI(netSupply, totalDemand);
+        }
+
+        // COBERTURA POR COMUNAS
+        function updateZoneCoverage(ratio) {
+            Object.keys(state.zones).forEach(key => {
+                let cov = Math.min(100, Math.round(ratio * 95));
+                if (key === 'rodadero' && state.extraDemand > 0) cov -= 15;
+                state.zones[key].coverage = Math.max(20, cov);
+                state.zones[key].pressure = Math.round((cov / 100) * 32);
+
+                // Actualizar Color SVG
+                const el = document.getElementById(`zone-${key}`);
+                if (el) {
+                    if (cov >= 88) el.setAttribute('fill', '#2A9D8F');
+                    else if (cov >= 65) el.setAttribute('fill', '#F4A261');
+                    else el.setAttribute('fill', '#E76F51');
+                }
+            });
+        }
+
+        // SIMULACIÓN DE EVENTOS ALEATORIOS
+        function triggerRandomEvents() {
+            if (Math.random() < 0.15 && !state.activeCrisis) {
+                const events = [
+                    {
+                        title: "Tala Indiscriminada en Cuenca Alta",
+                        desc: "Campesinos y deforestadores han reducido la capa vegetal en la Sierra Nevada. La erosión aumenta la sedimentación.",
+                        icon: "fa-tree",
+                        bg: "bg-amber-100 text-amber-700",
+                        options: [
+                            { text: "Enviar Batallón de Alta Montaña ($200M)", action: () => { state.budget -= 200; addLog("Se controló la deforestación con presencia militar.", "info"); } },
+                            { text: "Ignorar por el momento", action: () => { state.basinLevel -= 8; addLog("La erosión redujo la retención hídrica en cuencas.", "warning"); } }
+                        ]
+                    },
+                    {
+                        title: "Protestas por Racionamiento en Gaira",
+                        desc: "Comunidades bloquean la Troncal del Caribe exigiendo suministro inmediato por carro tanques.",
+                        icon: "fa-users-between-lines",
+                        bg: "bg-rose-100 text-rose-700",
+                        options: [
+                            { text: "Despachar flota de Carro Tanques ($150M)", action: () => { state.budget -= 150; state.approval += 5; addLog("Se mitigó el paro con agua subsidiada en carro tanques.", "info"); } },
+                            { text: "Redirigir flujo desde Mamatoco", action: () => { state.zones.mamatoco.coverage -= 15; addLog("El trasvase generó quejas en Mamatoco.", "warning"); } }
+                        ]
+                    }
+                ];
+
+                const ev = events[Math.floor(Math.random() * events.length)];
+                showModal(ev);
+            }
+        }
+
+        // MOSTRAR MODAL DE EVENTOS
+        function showModal(ev) {
+            document.getElementById('modal-title').innerText = ev.title;
+            document.getElementById('modal-desc').innerText = ev.desc;
+            document.getElementById('modal-icon').className = `fa-solid ${ev.icon}`;
+            document.getElementById('modal-icon-bg').className = `w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-4 ${ev.bg}`;
+
+            const opts = document.getElementById('modal-options');
+            opts.innerHTML = '';
+            ev.options.forEach(o => {
+                const b = document.createElement('button');
+                b.className = "w-full text-left p-3 rounded-xl border border-slate-200 hover:border-caribe-500 hover:bg-slate-50 font-bold text-xs transition";
+                b.innerText = o.text;
+                b.onclick = () => {
+                    o.action();
+                    closeModal();
+                };
+                opts.appendChild(b);
+            });
+
+            document.getElementById('event-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('event-modal').classList.add('hidden');
+        }
+
+        // CONSTRUIR MEGAPROYECTOS
+        function buildProject(type) {
+            const costs = { desal: 1800, cordoba: 2500, magdalena: 4500, reforest: 900 };
+            if (state.budget >= costs[type] && !state.builtProjects[type]) {
+                state.budget -= costs[type];
+                state.builtProjects[type] = true;
+                
+                const btn = document.getElementById(`btn-project-${type}`);
+                btn.disabled = true;
+                btn.innerText = "Construido ✓";
+                btn.className = "w-full py-2 bg-emerald-600 text-white font-bold rounded-lg text-xs cursor-default";
+
+                addLog(`PROYECTO COMPLETADO: Inversión en ${type.toUpperCase()} ejecutada con éxito.`, "info");
+                updateUI();
+            } else if (state.budget < costs[type]) {
+                addLog("Presupuesto insuficiente para ejecutar este proyecto.", "warning");
+            }
+        }
+
+        // DESENCADENAR CRISIS MANUAL
+        function triggerCrisis(type) {
+            state.activeCrisis = type;
+            state.crisisDuration = 3;
+            if (type === 'elnino') addLog("INICIO: Fenómeno de El Niño. Sequía en la Sierra Nevada.", "danger");
+            if (type === 'lanina') addLog("INICIO: Fenómeno de La Niña. Turbidez en PTAP Mamatoco.", "warning");
+            if (type === 'turismo') addLog("INICIO: Pico Turístico en El Rodadero y Taganga.", "info");
+            if (type === 'falla') addLog("EMERGENCIA: Falla eléctrica en bombas de pozo profundo.", "danger");
+        }
+
+        // SELECCIÓN DE ZONA EN MAPA
+        function selectZone(key) {
+            state.selectedZone = key;
+            const z = state.zones[key];
+            document.getElementById('detail-zone-name').innerText = `Comuna: ${z.name}`;
+            document.getElementById('detail-zone-desc').innerText = `Población: ${z.pop} • Cobertura: ${z.coverage}%`;
+            document.getElementById('detail-zone-pressure').innerText = `${z.pressure} PSI`;
+        }
+
+        // ACTUALIZACIÓN DE UI
+        function updateUI(supply = 820, demand = 910) {
+            document.getElementById('display-date').innerText = `${state.months[state.month]} - Año ${state.year}`;
+            document.getElementById('kpi-basin').innerText = Math.round(state.basinLevel);
+            document.getElementById('bar-basin-fill').style.width = `${Math.round(state.basinLevel)}%`;
+
+            document.getElementById('kpi-supply').innerText = Math.round(supply);
+            document.getElementById('kpi-demand').innerText = Math.round(demand);
+
+            const deficit = Math.round(demand - supply);
+            const defEl = document.getElementById('kpi-deficit-status');
+            if (deficit > 0) {
+                defEl.innerText = `-${deficit} L/s Déficit`;
+                defEl.className = "inline-block mt-2 px-2 py-0.5 text-[9px] font-bold rounded-md bg-rose-100 text-rose-800";
+            } else {
+                defEl.innerText = `+${Math.abs(deficit)} L/s Superávit`;
+                defEl.className = "inline-block mt-2 px-2 py-0.5 text-[9px] font-bold rounded-md bg-emerald-100 text-emerald-800";
+            }
+
+            document.getElementById('kpi-losses').innerText = Math.round(state.losses);
+            document.getElementById('kpi-salinity').innerText = Math.round(state.salinity);
+            document.getElementById('kpi-cienaga').innerText = Math.round(state.cienagaFlow);
+            
+            const appRounded = Math.round(state.approval);
+            document.getElementById('kpi-approval').innerText = appRounded;
+            document.getElementById('bar-approval').style.width = `${appRounded}%`;
+
+            document.getElementById('project-budget').innerText = `$${Math.round(state.budget)} M COP`;
+
+            selectZone(state.selectedZone);
+        }
+
+        function updateChart(label, basin, supply, demand) {
+            if (historyData.labels.length >= 12) {
+                historyData.labels.shift();
+                historyData.basin.shift();
+                historyData.supply.shift();
+                historyData.demand.shift();
+            }
+            historyData.labels.push(label);
+            historyData.basin.push(Math.round(basin));
+            historyData.supply.push(Math.round(supply));
+            historyData.demand.push(Math.round(demand));
+            mainChart.update();
+        }
+
+        function addLog(msg, type = "info") {
+            const container = document.getElementById('log-container');
+            const log = document.createElement('div');
+            let color = "border-slate-300 bg-slate-50 text-slate-700";
+            if (type === 'warning') color = "border-amber-300 bg-amber-50 text-amber-900";
+            if (type === 'danger') color = "border-rose-300 bg-rose-50 text-rose-900";
+
+            log.className = `p-2 rounded-xl border text-[11px] font-medium ${color}`;
+            log.innerText = `[${state.months[state.month]}] ${msg}`;
+            container.prepend(log);
+        }
+
+        function togglePlay() {
+            const btn = document.getElementById('btn-play');
+            if (state.isRunning) {
+                clearInterval(state.timer);
+                state.isRunning = false;
+                btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                btn.className = "w-10 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold flex items-center justify-center transition";
+            } else {
+                state.isRunning = true;
+                state.timer = setInterval(nextTick, 2000);
+                btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                btn.className = "w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 text-white font-bold flex items-center justify-center transition";
+            }
+        }
+
+        function resetSimulation() {
+            if (state.isRunning) togglePlay();
+            state.tick = 1;
+            state.month = 0;
+            state.year = 1;
+            state.basinLevel = 75;
+            state.budget = 3200;
+            state.approval = 74;
+            state.builtProjects = { desal: false, cordoba: false, magdalena: false, reforest: false };
+            
+            historyData.labels = [];
+            historyData.basin = [];
+            historyData.supply = [];
+            historyData.demand = [];
+
+            document.getElementById('log-container').innerHTML = '';
+            addLog("Simulación reiniciada con valores iniciales.", "info");
+            updateUI();
+        }
+
+        // EXPORTAR A PDF / IMPRESIÓN
+        function exportPDF() {
+            document.getElementById('print-date').innerText = `${state.months[state.month]} - Año ${state.year}`;
+            document.getElementById('print-basin').innerText = `${Math.round(state.basinLevel)}%`;
+            document.getElementById('print-supply').innerText = `${document.getElementById('kpi-supply').innerText} L/s`;
+            document.getElementById('print-demand').innerText = `${document.getElementById('kpi-demand').innerText} L/s`;
+            document.getElementById('print-losses').innerText = `${Math.round(state.losses)}%`;
+            document.getElementById('print-approval').innerText = `${Math.round(state.approval)}%`;
+            document.getElementById('print-salinity').innerText = `${Math.round(state.salinity)}%`;
+            document.getElementById('print-cienaga').innerText = `${Math.round(state.cienagaFlow)}%`;
+
+            const list = document.getElementById('print-projects');
+            list.innerHTML = '';
+            Object.keys(state.builtProjects).forEach(p => {
+                if (state.builtProjects[p]) {
+                    const li = document.createElement('li');
+                    li.innerText = `Proyecto ejecutado: ${p.toUpperCase()}`;
+                    list.appendChild(li);
+                }
+            });
+            if (list.children.length === 0) list.innerHTML = '<li>Sin proyectos de infraestructura ejecutados.</li>';
+
+            window.print();
+        }
+    </script>
+</body>
+</html>
+```
